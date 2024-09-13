@@ -6,7 +6,7 @@ let totalChunks = 0;
 
 var video = document.createElement("video");
 var canvasElement = document.getElementById("canvas");
-var canvas = canvasElement.getContext("2d");
+var canvas = canvasElement.getContext("2d", { willReadFrequently: true });
 var loadingMessage = document.getElementById("loadingMessage");
 var outputContainer = document.getElementById("output");
 var outputMessage = document.getElementById("outputMessage");
