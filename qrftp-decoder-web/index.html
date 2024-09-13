@@ -20,10 +20,13 @@ limitations under the License.
 
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>qrftp reader</title>
+  <link href="./bootstrap.min.css" rel="stylesheet">
   <script src="./jsQR.min.js"></script>
   <script src="./mt19937ar.min.js"></script>
   <script src="./lodash.min.js"></script>
+  <script src="./bootstrap.min.js"></script>
   <script src="./utils.js"></script>
   <script src="./LTDecoder.js"></script>
   <style>
@@ -65,15 +68,23 @@ limitations under the License.
     #noQRFound {
       text-align: center;
     }
+
+    #progressBar {
+      margin-top: 20px;
+    }
   </style>
 </head>
 
 <body>
-  <h1>qrftp reader</h1>
+  <h1 class="text-center">qrftp reader</h1>
+  <br/>
   <div id="loadingMessage">🎥 Unable to access video stream (please make sure you have a webcam enabled)</div>
   <canvas id="canvas" hidden></canvas>
   <div id="output" hidden>
     <div id="outputMessage">No QR code detected.</div>
+  </div>
+  <div id="progressBar" class="progress" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" hidden>
+    <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
   </div>
   <script>
     let ltDecoder = null;
@@ -88,6 +99,7 @@ limitations under the License.
     var loadingMessage = document.getElementById("loadingMessage");
     var outputContainer = document.getElementById("output");
     var outputMessage = document.getElementById("outputMessage");
+    var progressBar = document.getElementById("progressBar");
 
     // Use facingMode: environment to attempt to get the front camera on phones
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(function (stream) {
@@ -102,7 +114,7 @@ limitations under the License.
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
         loadingMessage.hidden = true;
         canvasElement.hidden = false;
-        outputContainer.hidden = false;
+        if (status === 0) outputContainer.hidden = false;
 
         canvasElement.height = video.videoHeight;
         canvasElement.width = video.videoWidth;
@@ -117,10 +129,18 @@ limitations under the License.
           parseChunk(code.binaryData);
 
           if (status === 1) {
-            outputMessage.innerText = `${receivedChunks} / ${totalChunks} received...`;
+            outputContainer.hidden = true;
+            progressBar.hidden = false;
+            progressBar.ariaValueMin = 0;
+            progressBar.ariaValueNow = receivedChunks;
+            progressBar.ariaValueMax = totalChunks;
+            progressBar.children[0].style.width = `${(receivedChunks / totalChunks * 100).toFixed(0)}%`;
+            progressBar.children[0].innerHTML = `${receivedChunks} / ${totalChunks}`;
           } else if (status === 2) {
             video.pause();
             outputMessage.innerText = "FINISHED!";
+            outputContainer.hidden = false;
+            progressBar.hidden = true;
             downloadFile(ltDecoder.decodedData);
           }
         }
