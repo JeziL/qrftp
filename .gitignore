@@ -5,3 +5,5 @@ qrftp-encoder/Scripts
 qrftp-encoder/share
 qrftp-encoder/test
 qrftp-encoder/pyvenv.cfg
+qrftp-encoder/build
+qrftp-encoder/dist

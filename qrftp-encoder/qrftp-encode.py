@@ -1,4 +1,5 @@
 import os
+import sys
 import random
 import qrcode
 import RSDSampler
@@ -66,7 +67,7 @@ def save_gif(imgs, fps, output_path):
 
 if __name__ == "__main__":
     parser = ArgumentParser(
-        prog="python qrftp-encode.py",
+        prog="qrftp-encode" if getattr(sys, "frozen", False) else "python qrftp-encode.py",
         description="Read file and encode to animated QR codes.",
     )
     parser.add_argument("input_file", help="The input file")
