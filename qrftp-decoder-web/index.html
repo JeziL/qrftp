@@ -1,0 +1,162 @@
+<!-- 
+Derived from https://github.com/cozmo/jsQR/blob/master/docs/index.html
+
+Copyright cozmo and other contributors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License. 
+-->
+
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>qrftp reader</title>
+  <script src="./jsQR.min.js"></script>
+  <script src="./mt19937ar.min.js"></script>
+  <script src="./lodash.min.js"></script>
+  <script src="./utils.js"></script>
+  <script src="./LTDecoder.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      color: #333;
+      max-width: 640px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    h1 {
+      margin: 10px 0;
+      font-size: 40px;
+    }
+
+    #loadingMessage {
+      text-align: center;
+      padding: 40px;
+      background-color: #eee;
+    }
+
+    #canvas {
+      width: 100%;
+    }
+
+    #output {
+      margin-top: 20px;
+      background: #eee;
+      padding: 10px;
+      padding-bottom: 0;
+    }
+
+    #output div {
+      padding-bottom: 10px;
+      word-wrap: break-word;
+    }
+
+    #noQRFound {
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>qrftp reader</h1>
+  <div id="loadingMessage">🎥 Unable to access video stream (please make sure you have a webcam enabled)</div>
+  <canvas id="canvas" hidden></canvas>
+  <div id="output" hidden>
+    <div id="outputMessage">No QR code detected.</div>
+  </div>
+  <script>
+    let ltDecoder = null;
+
+    let status = 0; // 0: idle; 1: in progress; 2: finished
+    let receivedChunks = 0;
+    let totalChunks = 0;
+
+    var video = document.createElement("video");
+    var canvasElement = document.getElementById("canvas");
+    var canvas = canvasElement.getContext("2d");
+    var loadingMessage = document.getElementById("loadingMessage");
+    var outputContainer = document.getElementById("output");
+    var outputMessage = document.getElementById("outputMessage");
+
+    // Use facingMode: environment to attempt to get the front camera on phones
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(function (stream) {
+      video.srcObject = stream;
+      video.setAttribute("playsinline", true); // required to tell iOS safari we don't want fullscreen
+      video.play();
+      requestAnimationFrame(tick);
+    });
+
+    function tick() {
+      loadingMessage.innerText = "⌛ Loading video..."
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        loadingMessage.hidden = true;
+        canvasElement.hidden = false;
+        outputContainer.hidden = false;
+
+        canvasElement.height = video.videoHeight;
+        canvasElement.width = video.videoWidth;
+        canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+        var imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+        var code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert",
+        });
+        if (code && status < 2) {
+          // drawBoundBox(code)
+
+          parseChunk(code.binaryData);
+
+          if (status === 1) {
+            outputMessage.innerText = `${receivedChunks} / ${totalChunks} received...`;
+          } else if (status === 2) {
+            video.pause();
+            outputMessage.innerText = "FINISHED!";
+            downloadFile(ltDecoder.decodedData);
+          }
+        }
+      }
+      requestAnimationFrame(tick);
+    }
+
+    function parseChunk(data) {
+      if (data.length <= 13) return;
+      const dataView = new DataView((new Uint8Array(data)).buffer);
+      const not_naive = dataView.getUint8(0);
+      const total_chunks = dataView.getUint32(1, false);
+      const seed = dataView.getUint32(5, false);
+      const n_lt_samples = dataView.getUint32(9, false);
+
+      if (status == 0) {
+        status = 1;
+        receivedChunks = 0;
+        totalChunks = total_chunks;
+        ltDecoder = new LTDecoder(totalChunks);
+      }
+
+      const rng = new MersenneTwister();
+      rng.init_genrand(seed);
+      const sampledIdx = not_naive ? rng.genrand_sample(totalChunks, n_lt_samples) : [seed];
+      let raw_data = data.slice(13);
+
+      ltDecoder.decode({ seed: seed, idxList: sampledIdx, data: raw_data });
+
+      receivedChunks = ltDecoder.decoded();
+
+      if (ltDecoder.finished()) {
+        status = 2;
+      }
+    }
+  </script>
+</body>
+
+</html>
