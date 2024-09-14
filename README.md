@@ -33,6 +33,8 @@ options:
   -d DELTA, --delta DELTA
                         The parameter `delta` of robust soliton distribution used by Luby-Tranform encoding, default 0.5
   -c C, --c C           The parameter `c` of robust soliton distribution used by Luby-Tranform encoding, default 0.1
+  -p PROCESSES, --processes PROCESSES
+                        The number of parallel processes used during QR code generation, default 1
   -f FPS, --fps FPS     The FPS of the generated GIF, default 10
   -o OUTPUT, --output OUTPUT
                         The output path, default the same as the input file
