@@ -4,6 +4,7 @@ import random
 import qrcode
 import RSDSampler
 from tqdm import tqdm
+import multiprocessing
 from MT19937Random import MT19937Random
 from argparse import ArgumentParser, BooleanOptionalAction
 
@@ -55,10 +56,24 @@ def create_qr_code(block):
     )
     qr.add_data(block)
     qr.make(fit=True)
-    img = qr.make_image(fill_color='black', back_color='white')
-    return img
+    return qr
 
-def save_gif(imgs, fps, output_path):
+def create_qr_code_batch(blocks):
+    qrs = []
+    for index in tqdm(range(len(blocks)), desc="Generating QR codes"):
+        qr = create_qr_code(blocks[index])
+        qrs.append(qr)
+    return qrs
+
+def create_qr_code_parallel(blocks, num_proc):
+    batch_size = len(blocks) // num_proc
+    batches = [blocks[i:i + batch_size] for i in range(0, len(blocks), batch_size)]
+    with multiprocessing.Pool(processes=num_proc) as pool:
+        results = pool.map(create_qr_code_batch, batches)
+    return [item for sublist in results for item in sublist]
+
+def save_gif(qrs, fps, output_path):
+    imgs = [qr.make_image(fill_color='black', back_color='white') for qr in qrs]
     if len(imgs) > 1:
         imgs[0].save(output_path, save_all=True, append_images=imgs[1:], duration=int(1000/float(fps)), loop=0)
     else:
@@ -103,11 +118,8 @@ if __name__ == "__main__":
     blocks = generate_LT_blocks(chunks, args.ltencode, float(args.redundancy), float(args.delta), float(args.c))
     
     # Generate QR codes
-    qr_images = []
-    for index in tqdm(range(len(blocks)), desc="Generating QR codes"):
-        qr_img = create_qr_code(blocks[index])
-        qr_images.append(qr_img)
+    qrs = create_qr_code_parallel(blocks, 12)
     
     print("Combining QR codes to GIF...")
-    save_gif(qr_images, args.fps, args.output)
+    save_gif(qrs, args.fps, args.output)
     print("Done.")
