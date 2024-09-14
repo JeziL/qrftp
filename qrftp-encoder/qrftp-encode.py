@@ -83,6 +83,8 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--delta", help="The parameter `delta` of robust soliton distribution used by Luby-Tranform encoding, default 0.5", default=0.5)
     parser.add_argument("-c", "--c", help="The parameter `c` of robust soliton distribution used by Luby-Tranform encoding, default 0.1", default=0.1)
 
+    parser.add_argument('-p', "--processes", help="The number of parallel processes used during QR code generation, default 1", default=1)
+
     parser.add_argument("-f", "--fps", help="The FPS of the generated GIF, default 10", default=10)
     parser.add_argument("-o", "--output", help="The output path, default the same as the input file")
     args = parser.parse_args()
@@ -108,7 +110,11 @@ if __name__ == "__main__":
     blocks = generate_LT_blocks(chunks, args.ltencode, float(args.redundancy), float(args.delta), float(args.c))
     
     # Generate QR codes
-    qrs = create_qr_code_parallel(blocks, 12)
+    num_proc = int(args.processes)
+    if num_proc > 1:
+        qrs = create_qr_code_parallel(blocks, num_proc)
+    else:
+        qrs = [create_qr_code(block) for block in tqdm(blocks, desc="Generating QR codes")]
     
     print("Combining QR codes to GIF...")
     save_gif(qrs, args.fps, args.output)
